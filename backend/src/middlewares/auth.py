@@ -17,3 +17,11 @@ def can_write(user=Depends(current_user)):
 def admin_only(user=Depends(current_user)):
     if user.role != 'admin': raise HTTPException(403, '需要业务负责人批准')
     return user
+def external_only(user=Depends(current_user)):
+    if user.role != 'external': raise HTTPException(403, '该接口仅对外协角色开放')
+    return user
+def deny_external(user=Depends(current_user)):
+    """外协角色只能访问差分隐私查询面，业务明细/原分析/归档/审计一律拒绝。"""
+    if user.role == 'external':
+        raise HTTPException(403, '外协角色仅可查询授权批次的加噪计数，无权访问该资源')
+    return user

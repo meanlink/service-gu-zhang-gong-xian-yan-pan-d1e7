@@ -7,6 +7,7 @@ from src.config.settings import REDIS_URL
 from src.models import Job, Dataset, Report
 from src.services.business import analyze
 from src.services.reports import deliver
+from src.services.privacy import sweep_stale_reservations
 from src.services.audit import record
 logging.basicConfig(level=logging.INFO)
 def execute(job_id):
@@ -33,6 +34,9 @@ def tick():
         for r in db.scalars(select(Report).where(Report.enabled==True,Report.next_run<=time.time())):
             d=deliver(db,r)
             if d:record(db,'worker','report.delivered',{'id':r.id,'delivery':d.id})
+        # 恢复机制：中断后未发布的隐私查询预留，超时自动退还预算
+        recovered=sweep_stale_reservations(db)
+        if recovered:record(db,'worker','privacy.reservation.refunded',{'count':recovered})
         db.commit()
 def main():
     r=Redis.from_url(REDIS_URL,socket_timeout=3)
